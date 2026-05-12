@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pong</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: 'Courier New', monospace;
+      color: #fff;
+    }
+    h1 { margin-bottom: 12px; font-size: 2rem; letter-spacing: 4px; }
+    #scoreboard {
+      display: flex;
+      gap: 60px;
+      font-size: 1.4rem;
+      margin-bottom: 16px;
+    }
+    canvas {
+      border: 3px solid #fff;
+      background: #000;
+    }
+    #message {
+      margin-top: 14px;
+      font-size: 1rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <h1>PONG</h1>
+  <div id="scoreboard">
+    <span>Player: <span id="playerScore">0</span></span>
+    <span>CPU: <span id="cpuScore">0</span></span>
+  </div>
+  <canvas id="pong" width="800" height="500"></canvas>
+  <p id="message">Press <strong>Space</strong> or click the canvas to start</p>
+
+  <script>
+    const canvas = document.getElementById('pong');
+    const ctx = canvas.getContext('2d');
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const PADDLE_W = 12;
+    const PADDLE_H = 90;
+    const BALL_SIZE = 12;
+    const PADDLE_SPEED = 5;
+    const CPU_SPEED = 4;
+    const WIN_SCORE = 7;
+
+    let playerScore = 0;
+    let cpuScore = 0;
+    let running = false;
+    let gameOver = false;
+
+    const player = { x: 20, y: H / 2 - PADDLE_H / 2, dy: 0 };
+    const cpu = { x: W - 20 - PADDLE_W, y: H / 2 - PADDLE_H / 2 };
+
+    const ball = {
+      x: W / 2, y: H / 2,
+      dx: 5 * (Math.random() > 0.5 ? 1 : -1),
+      dy: 3 * (Math.random() > 0.5 ? 1 : -1),
+      speed: 5
+    };
+
+    const keys = {};
+    document.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      if (e.code === 'Space') startOrRestart();
+    });
+    document.addEventListener('keyup', e => { keys[e.code] = false; });
+    canvas.addEventListener('click', startOrRestart);
+
+    function startOrRestart() {
+      if (gameOver) {
+        playerScore = 0;
+        cpuScore = 0;
+        document.getElementById('playerScore').textContent = 0;
+        document.getElementById('cpuScore').textContent = 0;
+        gameOver = false;
+        document.getElementById('message').textContent = '';
+      }
+      if (!running) {
+        resetBall();
+        running = true;
+        document.getElementById('message').textContent = '';
+        requestAnimationFrame(loop);
+      }
+    }
+
+    function resetBall() {
+      ball.x = W / 2;
+      ball.y = H / 2;
+      ball.speed = 5;
+      const angle = (Math.random() * 60 - 30) * Math.PI / 180;
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      ball.dx = dir * ball.speed * Math.cos(angle);
+      ball.dy = ball.speed * Math.sin(angle);
+    }
+
+    function update() {
+      // Player movement
+      if (keys['ArrowUp'] || keys['KeyW']) player.y -= PADDLE_SPEED;
+      if (keys['ArrowDown'] || keys['KeyS']) player.y += PADDLE_SPEED;
+      player.y = Math.max(0, Math.min(H - PADDLE_H, player.y));
+
+      // CPU AI — tracks ball with a slight delay
+      const cpuCenter = cpu.y + PADDLE_H / 2;
+      if (cpuCenter < ball.y - 10) cpu.y += CPU_SPEED;
+      else if (cpuCenter > ball.y + 10) cpu.y -= CPU_SPEED;
+      cpu.y = Math.max(0, Math.min(H - PADDLE_H, cpu.y));
+
+      // Ball movement
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+
+      // Top / bottom wall bounce
+      if (ball.y <= 0) { ball.y = 0; ball.dy *= -1; }
+      if (ball.y + BALL_SIZE >= H) { ball.y = H - BALL_SIZE; ball.dy *= -1; }
+
+      // Player paddle collision
+      if (
+        ball.x <= player.x + PADDLE_W &&
+        ball.x >= player.x &&
+        ball.y + BALL_SIZE >= player.y &&
+        ball.y <= player.y + PADDLE_H
+      ) {
+        ball.x = player.x + PADDLE_W;
+        const hitPos = (ball.y + BALL_SIZE / 2 - player.y) / PADDLE_H; // 0–1
+        const angle = (hitPos - 0.5) * (Math.PI / 2.5);
+        ball.speed = Math.min(ball.speed + 0.3, 14);
+        ball.dx = ball.speed * Math.cos(angle);
+        ball.dy = ball.speed * Math.sin(angle);
+      }
+
+      // CPU paddle collision
+      if (
+        ball.x + BALL_SIZE >= cpu.x &&
+        ball.x + BALL_SIZE <= cpu.x + PADDLE_W &&
+        ball.y + BALL_SIZE >= cpu.y &&
+        ball.y <= cpu.y + PADDLE_H
+      ) {
+        ball.x = cpu.x - BALL_SIZE;
+        const hitPos = (ball.y + BALL_SIZE / 2 - cpu.y) / PADDLE_H;
+        const angle = (hitPos - 0.5) * (Math.PI / 2.5);
+        ball.speed = Math.min(ball.speed + 0.3, 14);
+        ball.dx = -ball.speed * Math.cos(angle);
+        ball.dy = ball.speed * Math.sin(angle);
+      }
+
+      // Scoring
+      if (ball.x < 0) {
+        cpuScore++;
+        document.getElementById('cpuScore').textContent = cpuScore;
+        checkWin();
+        resetBall();
+      }
+      if (ball.x > W) {
+        playerScore++;
+        document.getElementById('playerScore').textContent = playerScore;
+        checkWin();
+        resetBall();
+      }
+    }
+
+    function checkWin() {
+      if (playerScore >= WIN_SCORE || cpuScore >= WIN_SCORE) {
+        running = false;
+        gameOver = true;
+        const winner = playerScore >= WIN_SCORE ? 'Player wins!' : 'CPU wins!';
+        document.getElementById('message').textContent =
+          `${winner} — Press Space or click to play again`;
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Centre dashed line
+      ctx.setLineDash([10, 10]);
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(W / 2, 0);
+      ctx.lineTo(W / 2, H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Paddles
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(player.x, player.y, PADDLE_W, PADDLE_H);
+      ctx.fillRect(cpu.x, cpu.y, PADDLE_W, PADDLE_H);
+
+      // Ball
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(ball.x, ball.y, BALL_SIZE, BALL_SIZE);
+    }
+
+    function loop() {
+      if (!running) return;
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Initial draw so canvas isn't blank
+    draw();
+  </script>
+</body>
+</html>
