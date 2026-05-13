@@ -23,3 +23,14 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   private_subnets = module.vpc.private_subnets
 }
+
+module "ecr" {
+  source          = "./modules/ecr"
+  repository_name = "pong-app"
+}
+
+module "github_oidc" {
+  source       = "./modules/github-oidc"
+  github_repo  = "chash525/terraform-lab"
+  ecr_repo_arn = module.ecr.repository_arn
+}
