@@ -5,12 +5,12 @@ on:
     branches: [main]
     paths:
       - "terraform-lab/pong-app/**"
-      - "terraform-lab/.github/workflows/pong-ci.yml"
+      - ".github/workflows/pong-ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "terraform-lab/pong-app/**"
-      - "terraform-lab/.github/workflows/pong-ci.yml"
+      - ".github/workflows/pong-ci.yml"
   workflow_dispatch:
 
 env:
